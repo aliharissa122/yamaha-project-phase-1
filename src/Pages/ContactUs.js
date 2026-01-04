@@ -1,47 +1,83 @@
-import React, { useState } from 'react';
-import "../Styles/ContactUs.css"; // keep your CSS file
+import React, { useState } from "react";
+import "../Styles/ContactUs.css";
+import { sendContactMessage } from "../api";
 
 const ContactUs = () => {
   const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    message: '',
+    fullName: "",
+    phone: "",
+    email: "",
+    message: "",
   });
 
   const [errors, setErrors] = useState({});
+  const [submitMsg, setSubmitMsg] = useState("");
+  const [submitErr, setSubmitErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required';
-    if (!/^\d{8}$/.test(formData.phone)) newErrors.phone = 'Phone must be 8 digits';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Invalid email format';
-    if (!formData.message.trim()) newErrors.message = 'Message is required';
+    if (!formData.fullName.trim()) newErrors.fullName = "Full name is required";
+    if (!/^\d{8}$/.test(formData.phone)) newErrors.phone = "Phone must be 8 digits";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
+      newErrors.email = "Invalid email format";
+    if (!formData.message.trim()) newErrors.message = "Message is required";
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitMsg("");
+    setSubmitErr("");
+
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
-    } else {
-      console.log('Form submitted:', formData);
-      alert('Message sent!');
-      setFormData({ fullName: '', phone: '', email: '', message: '' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // Send to backend
+      await sendContactMessage({
+        name: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+        message: formData.message,
+      });
+
+      setSubmitMsg("Message sent ✅");
+      setFormData({ fullName: "", phone: "", email: "", message: "" });
       setErrors({});
+    } catch (err) {
+      setSubmitErr(err?.message || "Failed to send message");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+
+    // optional: clear field-specific error as user types
+    if (errors[e.target.name]) {
+      setErrors((prev) => {
+        const copy = { ...prev };
+        delete copy[e.target.name];
+        return copy;
+      });
+    }
   };
 
   return (
     <div className="contactus-wrapper">
       <h2 className="contactus-title">Contact Us</h2>
-      <form className="contactus-form" onSubmit={handleSubmit}>
 
+      {submitMsg && <p style={{ color: "green" }}>{submitMsg}</p>}
+      {submitErr && <p style={{ color: "red" }}>{submitErr}</p>}
+
+      <form className="contactus-form" onSubmit={handleSubmit}>
         <div className="contactus-field">
           <label className="contactus-label">Full Name</label>
           <input
@@ -89,7 +125,9 @@ const ContactUs = () => {
           {errors.message && <span className="contactus-error">{errors.message}</span>}
         </div>
 
-        <button className="contactus-button" type="submit">Send Message</button>
+        <button className="contactus-button" type="submit" disabled={loading}>
+          {loading ? "Sending..." : "Send Message"}
+        </button>
       </form>
     </div>
   );
